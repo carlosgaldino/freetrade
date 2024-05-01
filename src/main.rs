@@ -101,26 +101,8 @@ struct Record {
     ticker: Option<String>,
     #[serde(rename = "Quantity")]
     quantity: Option<f32>,
-    #[serde(rename = "Instrument Currency")]
-    currency: Option<String>,
-    #[serde(rename = "Total Shares Amount")]
-    total_shares_amount: Option<f32>,
-    #[serde(rename = "FX Rate")]
-    fx_rate: Option<f32>,
-    #[serde(rename = "Base FX Rate")]
-    base_fx_rate: Option<f32>,
     #[serde(rename = "FX Fee Amount")]
     fx_fee_amount: Option<f32>,
-    #[serde(rename = "Dividend Eligible Quantity")]
-    dividend_eligible_quantity: Option<f32>,
-    #[serde(rename = "Dividend Amount Per Share")]
-    dividend_amount_per_share: Option<f32>,
-    #[serde(rename = "Dividend Gross Distribution Amount")]
-    dividend_gross_distribution_amount: Option<f32>,
-    #[serde(rename = "Dividend Net Distribution Amount")]
-    dividend_net_distribution_amount: Option<f32>,
-    #[serde(rename = "Dividend Withheld Tax Amount")]
-    dividend_withheld_tax_amount: Option<f32>,
 }
 
 impl Record {
@@ -281,16 +263,7 @@ mod tests {
             order_type: Some(OrderType::Buy),
             ticker: Some("FOO".into()),
             quantity: Some(3.0),
-            currency: Some("USD".into()),
-            total_shares_amount: Some(80.0),
-            fx_rate: Some(1.33),
-            base_fx_rate: Some(1.33),
             fx_fee_amount: Some(0.15),
-            dividend_eligible_quantity: None,
-            dividend_amount_per_share: None,
-            dividend_gross_distribution_amount: None,
-            dividend_net_distribution_amount: None,
-            dividend_withheld_tax_amount: None,
         };
         let expected = r#"2020-01-02 * "Buy FOO"
     Assets:UK:Freetrade:SIPP:FOO 3 FOO {30 GBP}
@@ -324,16 +297,7 @@ mod tests {
             order_type: Some(OrderType::Buy),
             ticker: Some("FOO".into()),
             quantity: Some(3.0),
-            currency: Some("USD".into()),
-            total_shares_amount: Some(80.0),
-            fx_rate: None,
-            base_fx_rate: None,
             fx_fee_amount: None,
-            dividend_eligible_quantity: None,
-            dividend_amount_per_share: None,
-            dividend_gross_distribution_amount: None,
-            dividend_net_distribution_amount: None,
-            dividend_withheld_tax_amount: None,
         };
         let expected = r#"2050-01-02 ! "Buy FOO"
     Assets:UK:Freetrade:SIPP:FOO 3 FOO {30 GBP}
@@ -358,16 +322,7 @@ mod tests {
             order_type: None,
             ticker: None,
             quantity: None,
-            currency: None,
-            total_shares_amount: None,
-            fx_rate: None,
-            base_fx_rate: None,
             fx_fee_amount: None,
-            dividend_eligible_quantity: None,
-            dividend_amount_per_share: None,
-            dividend_gross_distribution_amount: None,
-            dividend_net_distribution_amount: None,
-            dividend_withheld_tax_amount: None,
         };
 
         let expected = r#"2020-01-02 * "Top Up"
@@ -393,16 +348,7 @@ mod tests {
             order_type: None,
             ticker: None,
             quantity: None,
-            currency: None,
-            total_shares_amount: None,
-            fx_rate: None,
-            base_fx_rate: None,
             fx_fee_amount: None,
-            dividend_eligible_quantity: None,
-            dividend_amount_per_share: None,
-            dividend_gross_distribution_amount: None,
-            dividend_net_distribution_amount: None,
-            dividend_withheld_tax_amount: None,
         };
 
         let expected = r#"2020-01-02 * "Tax Relief"
@@ -428,16 +374,7 @@ mod tests {
             order_type: None,
             ticker: None,
             quantity: None,
-            currency: None,
-            total_shares_amount: None,
-            fx_rate: None,
-            base_fx_rate: None,
             fx_fee_amount: None,
-            dividend_eligible_quantity: None,
-            dividend_amount_per_share: None,
-            dividend_gross_distribution_amount: None,
-            dividend_net_distribution_amount: None,
-            dividend_withheld_tax_amount: None,
         };
 
         let expected = r#"2020-01-02 * "Interest from cash"
@@ -463,16 +400,7 @@ mod tests {
             order_type: None,
             ticker: Some("ABC".into()),
             quantity: None,
-            currency: None,
-            total_shares_amount: None,
-            fx_rate: None,
-            base_fx_rate: None,
             fx_fee_amount: None,
-            dividend_eligible_quantity: None,
-            dividend_amount_per_share: None,
-            dividend_gross_distribution_amount: None,
-            dividend_net_distribution_amount: None,
-            dividend_withheld_tax_amount: None,
         };
 
         let expected = r#"2020-01-02 * "Dividend"
