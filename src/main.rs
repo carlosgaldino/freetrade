@@ -99,6 +99,8 @@ struct Record {
     order_type: Option<OrderType>,
     #[serde(rename = "Ticker")]
     ticker: Option<String>,
+    #[serde(rename = "Stamp Duty")]
+    stamp_duty: Option<f32>,
     #[serde(rename = "Quantity")]
     quantity: Option<f32>,
     #[serde(rename = "FX Fee Amount")]
@@ -225,6 +227,18 @@ impl Record {
             buf.write_char('\n')?;
         }
 
+        // Stamp Duty
+        if let Some(stamp_duty) = self.stamp_duty {
+            if stamp_duty != 0.0 {
+                buf.write_str("    Expenses:UK:Freetrade:")?;
+                buf.write_str(account)?;
+                buf.write_str(":StampDuty ")?;
+                buf.write_str(&stamp_duty.to_string())?;
+                buf.write_str(" GBP")?;
+                buf.write_char('\n')?;
+            }
+        }
+
         // Total
         buf.write_str("    Assets:UK:Freetrade:")?;
         buf.write_str(account)?;
@@ -281,6 +295,7 @@ mod tests {
             ticker: Some("FOO".into()),
             quantity: Some(3.0),
             fx_fee_amount: Some(0.15),
+            stamp_duty: None,
         };
         let expected = r#"2020-01-02 * "Buy FOO"
     Assets:UK:Freetrade:SIPP:FOO 3 FOO {30 GBP}
@@ -300,7 +315,7 @@ mod tests {
         let buf = record.format("SIPP").expect("valid record");
         assert_eq!(buf, expected);
 
-        // Future date and no FX fees.
+        // Future date, no FX fees, and stamp duty.
         let date = OffsetDateTime::parse(
             "2050-01-02T03:04:05Z",
             &time::format_description::well_known::Rfc3339,
@@ -309,16 +324,18 @@ mod tests {
         let record = Record {
             kind: Type::Order,
             timestamp: date,
-            total_amount: Some(90.0),
+            total_amount: Some(92.19),
             price: Some(30.0),
             order_type: Some(OrderType::Buy),
             ticker: Some("FOO".into()),
             quantity: Some(3.0),
             fx_fee_amount: None,
+            stamp_duty: Some(2.19),
         };
         let expected = r#"2050-01-02 ! "Buy FOO"
     Assets:UK:Freetrade:SIPP:FOO 3 FOO {30 GBP}
-    Assets:UK:Freetrade:SIPP:Checking -90 GBP
+    Expenses:UK:Freetrade:SIPP:StampDuty 2.19 GBP
+    Assets:UK:Freetrade:SIPP:Checking -92.19 GBP
 "#;
         let buf = record.format("SIPP").expect("valid record");
         assert_eq!(buf, expected);
@@ -340,6 +357,7 @@ mod tests {
             ticker: Some("FOO".into()),
             quantity: Some(3.0),
             fx_fee_amount: None,
+            stamp_duty: Some(0.0),
         };
         let expected = r#"2020-01-02 * "Sell FOO"
     Assets:UK:Freetrade:SIPP:FOO -3 FOO {30 GBP}
@@ -365,6 +383,7 @@ mod tests {
             ticker: None,
             quantity: None,
             fx_fee_amount: None,
+            stamp_duty: None,
         };
 
         let expected = r#"2020-01-02 * "Top Up"
@@ -391,6 +410,7 @@ mod tests {
             ticker: None,
             quantity: None,
             fx_fee_amount: None,
+            stamp_duty: None,
         };
 
         let expected = r#"2020-01-02 * "Tax Relief"
@@ -417,6 +437,7 @@ mod tests {
             ticker: None,
             quantity: None,
             fx_fee_amount: None,
+            stamp_duty: None,
         };
 
         let expected = r#"2020-01-02 * "Interest from cash"
@@ -443,6 +464,7 @@ mod tests {
             ticker: Some("ABC.V".into()),
             quantity: None,
             fx_fee_amount: None,
+            stamp_duty: None,
         };
 
         let expected = r#"2020-01-02 * "Dividend"
