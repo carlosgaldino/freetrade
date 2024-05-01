@@ -1,4 +1,4 @@
-use std::fmt::Write;
+use std::{borrow::Cow, fmt::Write};
 
 use time::OffsetDateTime;
 
@@ -207,7 +207,8 @@ impl Record {
         }
         buf.write_str(&self.quantity.expect("order without quantity").to_string())?;
         buf.write_char(' ')?;
-        buf.write_str(ticker)?;
+        let normalised_ticker = format_ticker(ticker);
+        buf.write_str(&normalised_ticker)?;
         buf.write_str(" {")?;
         buf.write_str(
             &self
@@ -260,6 +261,14 @@ impl Record {
         buf.write_char('\n')?;
 
         Ok(buf)
+    }
+}
+
+fn format_ticker(ticker: &str) -> Cow<'_, str> {
+    if ticker.len() == 1 {
+        format!("{}{}", ticker, ticker).into()
+    } else {
+        ticker.into()
     }
 }
 
@@ -361,6 +370,25 @@ mod tests {
         };
         let expected = r#"2020-01-02 * "Sell FOO"
     Assets:UK:Freetrade:SIPP:FOO -3 FOO {30 GBP}
+    Assets:UK:Freetrade:SIPP:Checking 90 GBP
+"#;
+        let buf = record.format("SIPP").expect("valid record");
+        assert_eq!(buf, expected);
+
+        // Single char ticker
+        let record = Record {
+            kind: Type::Order,
+            timestamp: date,
+            total_amount: Some(90.0),
+            price: Some(30.0),
+            order_type: Some(OrderType::Sell),
+            ticker: Some("F".into()),
+            quantity: Some(3.0),
+            fx_fee_amount: None,
+            stamp_duty: Some(0.0),
+        };
+        let expected = r#"2020-01-02 * "Sell F"
+    Assets:UK:Freetrade:SIPP:F -3 FF {30 GBP}
     Assets:UK:Freetrade:SIPP:Checking 90 GBP
 "#;
         let buf = record.format("SIPP").expect("valid record");
@@ -470,6 +498,26 @@ mod tests {
         let expected = r#"2020-01-02 * "Dividend"
     Assets:UK:Freetrade:SIPP:Checking 25.5 GBP
     Income:UK:Freetrade:SIPP:ABCV:Dividend -25.5 GBP
+"#;
+        let buf = record.format("SIPP").expect("valid record");
+        assert_eq!(buf, expected);
+
+        // Single char ticker
+        let record = Record {
+            kind: Type::Dividend,
+            timestamp: date,
+            total_amount: Some(25.5),
+            price: None,
+            order_type: None,
+            ticker: Some("A".into()),
+            quantity: None,
+            fx_fee_amount: None,
+            stamp_duty: None,
+        };
+
+        let expected = r#"2020-01-02 * "Dividend"
+    Assets:UK:Freetrade:SIPP:Checking 25.5 GBP
+    Income:UK:Freetrade:SIPP:A:Dividend -25.5 GBP
 "#;
         let buf = record.format("SIPP").expect("valid record");
         assert_eq!(buf, expected);
