@@ -127,13 +127,16 @@ impl Record {
     fn format(&self, account: &str) -> Result<String, Box<dyn std::error::Error>> {
         match self.kind {
             Type::Dividend => Ok(String::new()),
-            Type::InterestFromCash => Ok(String::new()),
-            Type::MonthlyStatement => Ok(String::new()),
             Type::Order => self.format_order(account),
-            Type::SippAnnualStatement => Ok(String::new()),
-            Type::SippPresaleIllustration => Ok(String::new()),
+            // TODO: These should have the same implementation. Add the
+            // `total_amount` to the checking account.
+            Type::InterestFromCash => Ok(String::new()),
             Type::TaxRelief => Ok(String::new()),
             Type::TopUp => Ok(String::new()),
+            Type::MonthlyStatement | Type::SippAnnualStatement | Type::SippPresaleIllustration => {
+                // Nothing to do. These are always empty.
+                Ok(String::new())
+            }
         }
     }
 
