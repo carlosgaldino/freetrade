@@ -139,12 +139,12 @@ impl Record {
 
     fn format_order(&self, account: &str) -> Result<String, Box<dyn std::error::Error>> {
         assert!(matches!(self.kind, Type::Order));
-        /*
-         * 2023-07-02 * "Order BUY VISA"
-         *     Assets:UK:Freetrade:ISA:VISA AMOUNT VISA {}
-         */
+        assert!(
+            matches!(self.order_type, Some(OrderType::Buy)),
+            "TODO: sell orders"
+        );
+
         let mut buf = String::new();
-        buf.write_char('\n')?;
         format_timestamp(&mut buf, self.timestamp)?;
         if self.timestamp <= OffsetDateTime::now_utc() {
             buf.write_str(" * ")?;
@@ -166,7 +166,7 @@ impl Record {
         buf.write_str("    Assets:UK:Freetrade:")?;
         buf.write_str(account)?;
         buf.write_char(':')?;
-        buf.write_str(ticker)?;
+        buf.write_str(&ticker.replace('.', ""))?; // Normalise ticker name
         buf.write_char(' ')?;
         buf.write_str(&self.quantity.expect("order without quantity").to_string())?;
         buf.write_char(' ')?;
@@ -219,10 +219,86 @@ fn format_timestamp(
 
 #[cfg(test)]
 mod tests {
+    use std::time::Duration;
+
+    use time::OffsetDateTime;
+
+    use crate::{OrderType, Record};
+
     #[test]
     fn test_format_order() {
-        // TODO: Tickers with characters not allowed: needs replacement
-        // Tickers without fx fees
-        // Sell orders
+        let date = OffsetDateTime::parse(
+            "2020-01-02T03:04:05Z",
+            &time::format_description::well_known::Rfc3339,
+        )
+        .expect("valid date");
+        let mut record = Record {
+            kind: crate::Type::Order,
+            timestamp: date,
+            total_amount: Some(90.15),
+            price: Some(30.0),
+            order_type: Some(OrderType::Buy),
+            ticker: Some("FOO".into()),
+            quantity: Some(3.0),
+            currency: Some("USD".into()),
+            total_shares_amount: Some(80.0),
+            fx_rate: Some(1.33),
+            base_fx_rate: Some(1.33),
+            fx_fee_amount: Some(0.15),
+            dividend_eligible_quantity: None,
+            dividend_amount_per_share: None,
+            dividend_gross_distribution_amount: None,
+            dividend_net_distribution_amount: None,
+            dividend_withheld_tax_amount: None,
+        };
+        let expected = r#"2020-01-02 * "Buy FOO"
+    Assets:UK:Freetrade:SIPP:FOO 3 FOO {30 GBP}
+    Expenses:UK:Freetrade:SIPP:Fees 0.15 GBP
+    Assets:UK:Freetrade:SIPP:Checking -90.15 GBP
+"#;
+        let buf = record.format("SIPP").expect("valid record");
+        assert_eq!(buf, expected);
+
+        // Ticker with invalid characters for beancount.
+        record.ticker = Some("BAR.Z".into());
+        let expected = r#"2020-01-02 * "Buy BAR.Z"
+    Assets:UK:Freetrade:SIPP:BARZ 3 BAR.Z {30 GBP}
+    Expenses:UK:Freetrade:SIPP:Fees 0.15 GBP
+    Assets:UK:Freetrade:SIPP:Checking -90.15 GBP
+"#;
+        let buf = record.format("SIPP").expect("valid record");
+        assert_eq!(buf, expected);
+
+        // Future date and no FX fees.
+        let date = OffsetDateTime::parse(
+            "2050-01-02T03:04:05Z",
+            &time::format_description::well_known::Rfc3339,
+        )
+        .expect("valid date");
+        let record = Record {
+            kind: crate::Type::Order,
+            timestamp: date,
+            total_amount: Some(90.0),
+            price: Some(30.0),
+            order_type: Some(OrderType::Buy),
+            ticker: Some("FOO".into()),
+            quantity: Some(3.0),
+            currency: Some("USD".into()),
+            total_shares_amount: Some(80.0),
+            fx_rate: None,
+            base_fx_rate: None,
+            fx_fee_amount: None,
+            dividend_eligible_quantity: None,
+            dividend_amount_per_share: None,
+            dividend_gross_distribution_amount: None,
+            dividend_net_distribution_amount: None,
+            dividend_withheld_tax_amount: None,
+        };
+        let expected = r#"2050-01-02 ! "Buy FOO"
+    Assets:UK:Freetrade:SIPP:FOO 3 FOO {30 GBP}
+    Assets:UK:Freetrade:SIPP:Checking -90 GBP
+"#;
+        let buf = record.format("SIPP").expect("valid record");
+        assert_eq!(buf, expected);
     }
 }
