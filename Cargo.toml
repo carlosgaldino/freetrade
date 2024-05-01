@@ -8,4 +8,4 @@ edition = "2021"
 [dependencies]
 csv = "1.2.2"
 serde = { version = "1.0.164", features = ["derive"] }
-time = { version = "0.3.22", features = ["serde", "parsing"] }
+time = { version = "0.3.22", features = ["formatting", "macros", "serde", "parsing"] }
