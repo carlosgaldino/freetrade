@@ -176,10 +176,6 @@ impl Record {
 
     fn format_order(&self, account: &str) -> Result<String, Box<dyn std::error::Error>> {
         assert!(matches!(self.kind, Type::Order));
-        assert!(
-            matches!(self.order_type, Some(OrderType::Buy)),
-            "TODO: sell orders"
-        );
 
         let mut buf = String::new();
         self.write_timestamp(&mut buf)?;
@@ -200,6 +196,13 @@ impl Record {
         buf.write_char(':')?;
         buf.write_str(&ticker.replace('.', ""))?; // Normalise ticker name
         buf.write_char(' ')?;
+        if self
+            .order_type
+            .as_ref()
+            .map_or(false, |ot| *ot == OrderType::Sell)
+        {
+            buf.write_char('-')?;
+        }
         buf.write_str(&self.quantity.expect("order without quantity").to_string())?;
         buf.write_char(' ')?;
         buf.write_str(ticker)?;
@@ -225,7 +228,14 @@ impl Record {
         // Total
         buf.write_str("    Assets:UK:Freetrade:")?;
         buf.write_str(account)?;
-        buf.write_str(":Checking -")?;
+        buf.write_str(":Checking ")?;
+        if self
+            .order_type
+            .as_ref()
+            .map_or(false, |ot| *ot == OrderType::Buy)
+        {
+            buf.write_char('-')?;
+        }
         buf.write_str(
             &self
                 .total_amount
@@ -256,7 +266,7 @@ mod tests {
     use crate::{OrderType, Record, Type};
 
     #[test]
-    fn test_format_order() {
+    fn test_format_order_buy() {
         let date = OffsetDateTime::parse(
             "2020-01-02T03:04:05Z",
             &time::format_description::well_known::Rfc3339,
@@ -309,6 +319,31 @@ mod tests {
         let expected = r#"2050-01-02 ! "Buy FOO"
     Assets:UK:Freetrade:SIPP:FOO 3 FOO {30 GBP}
     Assets:UK:Freetrade:SIPP:Checking -90 GBP
+"#;
+        let buf = record.format("SIPP").expect("valid record");
+        assert_eq!(buf, expected);
+    }
+
+    #[test]
+    fn test_format_order_sell() {
+        let date = OffsetDateTime::parse(
+            "2020-01-02T03:04:05Z",
+            &time::format_description::well_known::Rfc3339,
+        )
+        .expect("valid date");
+        let record = Record {
+            kind: Type::Order,
+            timestamp: date,
+            total_amount: Some(90.0),
+            price: Some(30.0),
+            order_type: Some(OrderType::Sell),
+            ticker: Some("FOO".into()),
+            quantity: Some(3.0),
+            fx_fee_amount: None,
+        };
+        let expected = r#"2020-01-02 * "Sell FOO"
+    Assets:UK:Freetrade:SIPP:FOO -3 FOO {30 GBP}
+    Assets:UK:Freetrade:SIPP:Checking 90 GBP
 "#;
         let buf = record.format("SIPP").expect("valid record");
         assert_eq!(buf, expected);
