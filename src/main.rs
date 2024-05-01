@@ -132,12 +132,38 @@ impl Record {
             // `total_amount` to the checking account.
             Type::InterestFromCash => Ok(String::new()),
             Type::TaxRelief => Ok(String::new()),
-            Type::TopUp => Ok(String::new()),
+            Type::TopUp => self.format_top_up(account),
             Type::MonthlyStatement | Type::SippAnnualStatement | Type::SippPresaleIllustration => {
                 // Nothing to do. These are always empty.
                 Ok(String::new())
             }
         }
+    }
+
+    fn format_top_up(&self, account: &str) -> Result<String, Box<dyn std::error::Error>> {
+        assert!(matches!(self.kind, Type::TopUp));
+        let mut buf = String::new();
+        self.write_timestamp(&mut buf)?;
+        buf.write_str(r#""Top Up""#)?;
+        buf.write_char('\n')?;
+        buf.write_str("    Assets:UK:Freetrade:")?;
+        buf.write_str(account)?;
+        buf.write_str(":Checking ")?;
+        buf.write_str(&self.total_amount.expect("missing total amount").to_string())?;
+        buf.write_str(" GBP\n")?;
+
+        Ok(buf)
+    }
+
+    fn write_timestamp(&self, buf: &mut String) -> Result<(), Box<dyn std::error::Error>> {
+        format_timestamp(buf, self.timestamp)?;
+        if self.timestamp <= OffsetDateTime::now_utc() {
+            buf.write_str(" * ")?;
+        } else {
+            buf.write_str(" ! ")?;
+        }
+
+        Ok(())
     }
 
     fn format_order(&self, account: &str) -> Result<String, Box<dyn std::error::Error>> {
@@ -148,12 +174,7 @@ impl Record {
         );
 
         let mut buf = String::new();
-        format_timestamp(&mut buf, self.timestamp)?;
-        if self.timestamp <= OffsetDateTime::now_utc() {
-            buf.write_str(" * ")?;
-        } else {
-            buf.write_str(" ! ")?;
-        }
+        self.write_timestamp(&mut buf)?;
         buf.write_char('"')?;
         if self.order_type.as_ref().expect("order without type") == &OrderType::Buy {
             buf.write_str("Buy ")?;
@@ -222,11 +243,9 @@ fn format_timestamp(
 
 #[cfg(test)]
 mod tests {
-    use std::time::Duration;
-
     use time::OffsetDateTime;
 
-    use crate::{OrderType, Record};
+    use crate::{OrderType, Record, Type};
 
     #[test]
     fn test_format_order() {
@@ -236,7 +255,7 @@ mod tests {
         )
         .expect("valid date");
         let mut record = Record {
-            kind: crate::Type::Order,
+            kind: Type::Order,
             timestamp: date,
             total_amount: Some(90.15),
             price: Some(30.0),
@@ -279,7 +298,7 @@ mod tests {
         )
         .expect("valid date");
         let record = Record {
-            kind: crate::Type::Order,
+            kind: Type::Order,
             timestamp: date,
             total_amount: Some(90.0),
             price: Some(30.0),
@@ -300,6 +319,40 @@ mod tests {
         let expected = r#"2050-01-02 ! "Buy FOO"
     Assets:UK:Freetrade:SIPP:FOO 3 FOO {30 GBP}
     Assets:UK:Freetrade:SIPP:Checking -90 GBP
+"#;
+        let buf = record.format("SIPP").expect("valid record");
+        assert_eq!(buf, expected);
+    }
+
+    #[test]
+    fn test_format_top_up() {
+        let date = OffsetDateTime::parse(
+            "2020-01-02T03:04:05Z",
+            &time::format_description::well_known::Rfc3339,
+        )
+        .expect("valid date");
+        let record = Record {
+            kind: Type::TopUp,
+            timestamp: date,
+            total_amount: Some(25.5),
+            price: None,
+            order_type: None,
+            ticker: None,
+            quantity: None,
+            currency: None,
+            total_shares_amount: None,
+            fx_rate: None,
+            base_fx_rate: None,
+            fx_fee_amount: None,
+            dividend_eligible_quantity: None,
+            dividend_amount_per_share: None,
+            dividend_gross_distribution_amount: None,
+            dividend_net_distribution_amount: None,
+            dividend_withheld_tax_amount: None,
+        };
+
+        let expected = r#"2020-01-02 * "Top Up"
+    Assets:UK:Freetrade:SIPP:Checking 25.5 GBP
 "#;
         let buf = record.format("SIPP").expect("valid record");
         assert_eq!(buf, expected);
