@@ -141,7 +141,14 @@ impl Record {
         buf.write_str(account)?;
         if matches!(self.kind, Type::Dividend) {
             buf.write_char(':')?;
-            buf.write_str(self.ticker.as_ref().expect("dividend without a ticker"))?;
+            // Normalise ticker name
+            buf.write_str(
+                &self
+                    .ticker
+                    .as_ref()
+                    .expect("dividend without a ticker")
+                    .replace('.', ""),
+            )?;
         }
         match self.kind {
             Type::Dividend => buf.write_str(":Dividend -")?,
@@ -398,14 +405,14 @@ mod tests {
             total_amount: Some(25.5),
             price: None,
             order_type: None,
-            ticker: Some("ABC".into()),
+            ticker: Some("ABC.V".into()),
             quantity: None,
             fx_fee_amount: None,
         };
 
         let expected = r#"2020-01-02 * "Dividend"
     Assets:UK:Freetrade:SIPP:Checking 25.5 GBP
-    Income:UK:Freetrade:SIPP:ABC:Dividend -25.5 GBP
+    Income:UK:Freetrade:SIPP:ABCV:Dividend -25.5 GBP
 "#;
         let buf = record.format("SIPP").expect("valid record");
         assert_eq!(buf, expected);
