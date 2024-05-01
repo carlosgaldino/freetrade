@@ -128,11 +128,7 @@ impl Record {
         match self.kind {
             Type::Dividend => Ok(String::new()),
             Type::Order => self.format_order(account),
-            // TODO: These should have the same implementation. Add the
-            // `total_amount` to the checking account.
-            Type::InterestFromCash => Ok(String::new()),
-            Type::TaxRelief => Ok(String::new()),
-            Type::TopUp => self.format_top_up(account),
+            Type::InterestFromCash | Type::TaxRelief | Type::TopUp => self.format_credit(account),
             Type::MonthlyStatement | Type::SippAnnualStatement | Type::SippPresaleIllustration => {
                 // Nothing to do. These are always empty.
                 Ok(String::new())
@@ -140,15 +136,35 @@ impl Record {
         }
     }
 
-    fn format_top_up(&self, account: &str) -> Result<String, Box<dyn std::error::Error>> {
-        assert!(matches!(self.kind, Type::TopUp));
+    fn format_credit(&self, account: &str) -> Result<String, Box<dyn std::error::Error>> {
+        assert!(matches!(
+            self.kind,
+            Type::InterestFromCash | Type::TaxRelief | Type::TopUp
+        ));
         let mut buf = String::new();
         self.write_timestamp(&mut buf)?;
-        buf.write_str(r#""Top Up""#)?;
+        match self.kind {
+            Type::InterestFromCash => buf.write_str(r#""Interest from cash""#)?,
+            Type::TaxRelief => buf.write_str(r#""Tax Relief""#)?,
+            Type::TopUp => buf.write_str(r#""Top Up""#)?,
+            _ => unreachable!("assertion should've panicked before"),
+        }
         buf.write_char('\n')?;
         buf.write_str("    Assets:UK:Freetrade:")?;
         buf.write_str(account)?;
         buf.write_str(":Checking ")?;
+        buf.write_str(&self.total_amount.expect("missing total amount").to_string())?;
+        buf.write_str(" GBP\n")?;
+
+        // Income
+        buf.write_str("    Income:UK:Freetrade:")?;
+        buf.write_str(account)?;
+        match self.kind {
+            Type::InterestFromCash => buf.write_str(":Interest -")?,
+            Type::TaxRelief => buf.write_str(":TaxRelief -")?,
+            Type::TopUp => buf.write_str(":TopUp -")?,
+            _ => unreachable!("assertion should've panicked before"),
+        }
         buf.write_str(&self.total_amount.expect("missing total amount").to_string())?;
         buf.write_str(" GBP\n")?;
 
@@ -353,6 +369,77 @@ mod tests {
 
         let expected = r#"2020-01-02 * "Top Up"
     Assets:UK:Freetrade:SIPP:Checking 25.5 GBP
+    Income:UK:Freetrade:SIPP:TopUp -25.5 GBP
+"#;
+        let buf = record.format("SIPP").expect("valid record");
+        assert_eq!(buf, expected);
+    }
+
+    #[test]
+    fn test_format_tax_relief() {
+        let date = OffsetDateTime::parse(
+            "2020-01-02T03:04:05Z",
+            &time::format_description::well_known::Rfc3339,
+        )
+        .expect("valid date");
+        let record = Record {
+            kind: Type::TaxRelief,
+            timestamp: date,
+            total_amount: Some(35.5),
+            price: None,
+            order_type: None,
+            ticker: None,
+            quantity: None,
+            currency: None,
+            total_shares_amount: None,
+            fx_rate: None,
+            base_fx_rate: None,
+            fx_fee_amount: None,
+            dividend_eligible_quantity: None,
+            dividend_amount_per_share: None,
+            dividend_gross_distribution_amount: None,
+            dividend_net_distribution_amount: None,
+            dividend_withheld_tax_amount: None,
+        };
+
+        let expected = r#"2020-01-02 * "Tax Relief"
+    Assets:UK:Freetrade:SIPP:Checking 35.5 GBP
+    Income:UK:Freetrade:SIPP:TaxRelief -35.5 GBP
+"#;
+        let buf = record.format("SIPP").expect("valid record");
+        assert_eq!(buf, expected);
+    }
+
+    #[test]
+    fn test_format_interest() {
+        let date = OffsetDateTime::parse(
+            "2020-01-02T03:04:05Z",
+            &time::format_description::well_known::Rfc3339,
+        )
+        .expect("valid date");
+        let record = Record {
+            kind: Type::InterestFromCash,
+            timestamp: date,
+            total_amount: Some(5.5),
+            price: None,
+            order_type: None,
+            ticker: None,
+            quantity: None,
+            currency: None,
+            total_shares_amount: None,
+            fx_rate: None,
+            base_fx_rate: None,
+            fx_fee_amount: None,
+            dividend_eligible_quantity: None,
+            dividend_amount_per_share: None,
+            dividend_gross_distribution_amount: None,
+            dividend_net_distribution_amount: None,
+            dividend_withheld_tax_amount: None,
+        };
+
+        let expected = r#"2020-01-02 * "Interest from cash"
+    Assets:UK:Freetrade:SIPP:Checking 5.5 GBP
+    Income:UK:Freetrade:SIPP:Interest -5.5 GBP
 "#;
         let buf = record.format("SIPP").expect("valid record");
         assert_eq!(buf, expected);
