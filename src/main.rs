@@ -27,7 +27,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut reader = csv::Reader::from_path(input_file)?;
     for result in reader.deserialize() {
         let record: Record = result?;
-        println!("{}", record.format(&account_name)?);
+        let formatted = record.format(&account_name)?;
+        if !formatted.is_empty() {
+            println!("{}", formatted);
+        }
     }
 
     Ok(())
