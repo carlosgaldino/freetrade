@@ -24,6 +24,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             _ => return Err(USAGE.into()),
         },
     }
+    println!(";; Imported on {}", time::OffsetDateTime::now_utc());
+    println!(";; Account: {}", account_name);
+    println!(";; Original file: {}\n", input_file);
     let mut reader = csv::Reader::from_path(input_file)?;
     for result in reader.deserialize() {
         let record: Record = result?;
