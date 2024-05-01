@@ -2,7 +2,14 @@ use std::{borrow::Cow, fmt::Write};
 
 use time::OffsetDateTime;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() {
+    if let Err(err) = run() {
+        eprintln!("{}", err);
+        std::process::exit(1);
+    }
+}
+
+fn run() -> Result<(), Box<dyn std::error::Error>> {
     let mut args = std::env::args().skip(1);
     let input_file;
     let account_name;
